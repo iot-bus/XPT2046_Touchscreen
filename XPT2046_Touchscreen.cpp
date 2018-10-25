@@ -78,7 +78,7 @@ TS_Point XPT2046_Touchscreen::getMappedPoint()
 	update();
 	TS_Point p = getPoint();	
 	p.x = ((float)(p.x-xmin)/xmax)*240;//getWidth();         
-    p.y = ((float)(p.y-ymin)/ymax)*320;//getHeight(); 
+	p.y = ((float)(p.y-ymin)/ymax)*320;//getHeight(); 
 	return TS_Point(p.x, p.y, p.z);
 }
 
