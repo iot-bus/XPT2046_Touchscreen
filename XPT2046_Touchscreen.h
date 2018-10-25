@@ -41,25 +41,34 @@ public:
 
 class XPT2046_Touchscreen {
 public:
-	constexpr XPT2046_Touchscreen(uint8_t cspin, uint8_t tirq=255)
-		: csPin(cspin), tirqPin(tirq) { }
+	constexpr XPT2046_Touchscreen(uint8_t cspin, uint8_t tirq=255, uint16_t width=240, uint16_t height=320)
+		: csPin(cspin), tirqPin(tirq), width(width), height(height) { }
 	bool begin();
 	TS_Point getPoint();
 	TS_Point getMappedPoint();
+	uint16_t getWidth();
+	uint16_t getHeight();
 	bool tirqTouched();
 	bool touched();
 	void readData(uint16_t *x, uint16_t *y, uint8_t *z);
 	bool bufferEmpty();
 	uint8_t bufferSize() { return 1; }
+	void setSize(uint16_t x, uint16_t y);
 	void setRotation(uint8_t n) { rotation = n % 4; }
+	void setCalibration(uint16_t xmin, uint16_t xmax, uint16_t ymin, uint16_t yxmax);
+
 // protected:
 	volatile bool isrWake=true;
 
 private:
 	void update();
-	uint8_t csPin, tirqPin, rotation=1;
+	uint8_t csPin, tirqPin; 
+	uint16_t width, height;
+	uint8_t rotation=1;
 	int16_t xraw=0, yraw=0, zraw=0;
 	uint32_t msraw=0x80000000;
+	uint16_t xmin=0, xmax=3600, ymin=0, ymax=3600;
+	bool calibrated = false;
 };
 
 #endif
