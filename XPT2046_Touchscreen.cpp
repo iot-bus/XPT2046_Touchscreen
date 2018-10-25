@@ -53,15 +53,71 @@ void isrPin( void )
 	o->isrWake = true;
 }
 
+void XPT2046_Touchscreen::setSize(uint16_t _width, uint16_t _height ){
+	width = _width;
+	height = _height;
+}
+
+void XPT2046_Touchscreen::setCalibration(uint16_t _xmin, uint16_t _xmax, uint16_t _ymin, uint16_t _ymax ){
+	xmin = _xmin;
+	xmax = _xmax;
+	ymin = _ymin;
+	ymax = _ymax;
+	calibrated = true;
+}
+
+
 TS_Point XPT2046_Touchscreen::getPoint()
 {
 	update();
 	return TS_Point(xraw, yraw, zraw);
 }
 
+TS_Point XPT2046_Touchscreen::getMappedPoint()
+{
+	update();
+	TS_Point p = getPoint();	
+	p.x = ((float)(p.x-xmin)/xmax)*240;//getWidth();         
+    p.y = ((float)(p.y-ymin)/ymax)*320;//getHeight(); 
+	return TS_Point(p.x, p.y, p.z);
+}
+
 bool XPT2046_Touchscreen::tirqTouched()
 {
 	return (isrWake);
+}
+
+uint16_t XPT2046_Touchscreen::getWidth(){
+	uint16_t rotWidth;
+	switch (rotation) {
+		case 0:
+		case 2:
+			rotWidth = width;
+		break;
+		case 1:
+		case 3:
+			rotWidth = height;
+		break;
+		default: 
+			rotWidth = width;
+	}
+	return rotWidth;
+}
+uint16_t XPT2046_Touchscreen::getHeight(){
+	uint16_t rotHeight;
+	switch (rotation) {
+		case 0:
+		case 2:
+			rotHeight = height;
+		break;
+		case 1:
+		case 3:
+			rotHeight = width;
+		break;
+		default: 
+			rotHeight = height;
+	}
+	return rotHeight;
 }
 
 bool XPT2046_Touchscreen::touched()
@@ -115,7 +171,7 @@ void XPT2046_Touchscreen::update()
 	int z = z1 + 4095;
 	int16_t z2 = SPI.transfer16(0x91 /* X */) >> 3;
 	z -= z2;
-	if (z >= Z_THRESHOLD) {
+	if (z >= Z_THRESHOLD && z != 4095) { // check for spurious value
 		SPI.transfer16(0x91 /* X */);  // dummy X measure, 1st is always noisy
 		data[0] = SPI.transfer16(0xD1 /* Y */) >> 3;
 		data[1] = SPI.transfer16(0x91 /* X */) >> 3; // make 3 x-y measurements
@@ -123,14 +179,13 @@ void XPT2046_Touchscreen::update()
 		data[3] = SPI.transfer16(0x91 /* X */) >> 3;
 	}
 	else data[0] = data[1] = data[2] = data[3] = 0;	// Compiler warns these values may be used unset on early exit.
-	data[4] = SPI.transfer16(0xD0 /* Y */) >> 3;	// Last Y touch power down
-	data[5] = SPI.transfer16(0) >> 3;
+	data[4] = SPI.transfer16(0xD1 /* Y */) >> 3;	// Last Y touch power down - IRQ disabled
+	data[5] = SPI.transfer16(0) >> 3; // IRQ disabled
 	digitalWrite(csPin, HIGH);
 	SPI.endTransaction();
-	//Serial.printf("z=%d  ::  z1=%d,  z2=%d  ", z, z1, z2);
+	
 	if (z < 0) z = 0;
 	if (z < Z_THRESHOLD) { //	if ( !touched ) {
-		// Serial.println();
 		zraw = 0;
 		if (z < Z_THRESHOLD_INT) { //	if ( !touched ) {
 			if (255 != tirqPin) isrWake = false;
@@ -138,26 +193,20 @@ void XPT2046_Touchscreen::update()
 		return;
 	}
 	zraw = z;
-	
-	// Average pair with least distance between each measured x then y
-	//Serial.printf("    z1=%d,z2=%d  ", z1, z2);
-	//Serial.printf("p=%d,  %d,%d  %d,%d  %d,%d", zraw,
-		//data[0], data[1], data[2], data[3], data[4], data[5]);
+
 	int16_t x = besttwoavg( data[0], data[2], data[4] );
 	int16_t y = besttwoavg( data[1], data[3], data[5] );
-	
-	//Serial.printf("    %d,%d", x, y);
-	//Serial.println();
-	if (z >= Z_THRESHOLD) {
+
+	if (z >= Z_THRESHOLD && z != 4095) { // check for spurious value
 		msraw = now;	// good read completed, set wait
 		switch (rotation) {
 		  case 0:
-			xraw = 4095 - y;
+			xraw = y;
 			yraw = x;
 			break;
 		  case 1:
 			xraw = x;
-			yraw = y;
+			yraw = 4095-y;
 			break;
 		  case 2:
 			xraw = y;
@@ -167,8 +216,6 @@ void XPT2046_Touchscreen::update()
 			xraw = 4095 - x;
 			yraw = 4095 - y;
 		}
+
 	}
 }
-
-
-
