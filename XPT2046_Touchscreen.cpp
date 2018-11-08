@@ -208,12 +208,12 @@ void XPT2046_Touchscreen::update()
 			yraw = 4095-y;
 			break;
 		  case 2:
-			xraw = y;
+			xraw = 4095 - y;
 			yraw = 4095 - x;
 			break;
 		  default: // 3
 			xraw = 4095 - x;
-			yraw = 4095 - y;
+			yraw = y;
 		}
 
 	}
